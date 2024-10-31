@@ -1,0 +1,77 @@
+//@version=5
+indicator("Modern Advanced Indicator with RSI, Volume, 200 MA, and 20 MA", overlay=true)
+
+// === Input Parameters ===
+ema_length = input.int(21, title="EMA Length", minval=1)
+bb_length = input.int(20, title="Bollinger Bands Length", minval=1)
+bb_mult = input.float(2.0, title="Bollinger Bands Multiplier", minval=0.1)
+rsi_length = input.int(14, title="RSI Length", minval=1)
+rsi_overbought = input.int(70, title="RSI Overbought Level", minval=1)
+rsi_oversold = input.int(30, title="RSI Oversold Level", minval=1)
+rsi_buy_level = input.int(60, title="RSI Buy Level", minval=1)
+rsi_sell_level = input.int(30, title="RSI Sell Level", minval=1)
+volume_multiplier = input.float(1.5, title="Volume Spike Multiplier", minval=0.1)
+
+// === Indicator Calculations ===
+// EMA
+ema = ta.ema(close, ema_length)
+
+// Bollinger Bands
+basis = ta.sma(close, bb_length)
+dev = ta.stdev(close, bb_length)
+upper_bb = basis + bb_mult * dev
+lower_bb = basis - bb_mult * dev
+
+// RSI
+rsi = ta.rsi(close, rsi_length)
+
+// Volume
+avg_volume = ta.sma(volume, 20)
+volume_increase = volume > avg_volume * volume_multiplier
+volume_decrease = volume < avg_volume / volume_multiplier
+
+// 200-day MA
+ma_200 = ta.sma(close, 200)
+
+// 20-day MA
+ma_20 = ta.sma(close, 20)
+
+// === Plotting ===
+// Bollinger Bands with gradient fill
+plot(upper_bb, color=color.new(color.blue, 0), linewidth=2, title="Upper BB")
+plot(lower_bb, color=color.new(color.blue, 0), linewidth=2, title="Lower BB")
+fill(plot1=plot(upper_bb), plot2=plot(lower_bb), color=color.new(color.blue, 80))
+
+// EMA
+plot(ema, color=color.yellow, linewidth=2, title="EMA")
+
+// 200-day MA (red line)
+plot(ma_200, color=color.red, linewidth=2, title="200-day MA")
+
+// 20-day MA (white line)
+plot(ma_20, color=color.white, linewidth=2, title="20-day MA")
+
+// RSI Highlight Zones
+bgcolor(rsi > rsi_overbought ? color.new(color.red, 90) : na, title="Overbought Zone")
+bgcolor(rsi < rsi_oversold ? color.new(color.green, 90) : na, title="Oversold Zone")
+
+// Alerts for Volume Spikes
+alertcondition(volume_increase, title="Volume Spike Alert", message="📈 Significant volume spike detected.")
+alertcondition(volume_decrease, title="Volume Drop Alert", message="📉 Significant volume drop detected.")
+
+// Buy and Sell Signals Based on RSI Levels with State Control
+var bool in_buy_state = false // Initial state
+
+// Calculate Buy and Sell conditions
+buy_signal = (rsi > rsi_buy_level) and not in_buy_state
+sell_signal = (rsi < rsi_sell_level) and in_buy_state
+
+// Update the state based on signals
+if (buy_signal)
+    in_buy_state := true
+if (sell_signal)
+    in_buy_state := false 
+
+// Plot Buy (B) and Sell (S) signals
+plotshape(series=buy_signal, title="Buy Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="B", size=size.small)
+plotshape(series=sell_signal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="S", size=size.small)
